@@ -1,0 +1,133 @@
+---
+title: "Statistical Learning One - Linear Regression"
+author: "Albert Panda"
+date: "5/31/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(MASS)
+library(ISLR)
+```
+
+## Simple Linear Regression
+* 关于模型中均值的方差，模拟后系数的方差：Page 45。根据系数的估计值和方差，可以计算出其置信区间（two-sided）。  
+* 当数据维度大的时候，KNN的表现比线性回归差很多。  
+#### Show column names of Data Set
+```{r}
+names(Boston)
+```
+
+```{r}
+lm.fit=lm(medv~lstat,data=Boston)
+summary(lm.fit)
+```
+
+#### Names of all materials that can be shown
+```{r}
+names(lm.fit)
+```
+
+### Confidence Interval of Beta
+```{r}
+confint(lm.fit)
+```
+
+### Confidence Interval and Prediction Interval
+* Prediction interval is wider than confidence interval --Page 56
+```{r}
+predict(lm.fit,data.frame(lstat=c(5,10,15)),interval = 'confidence')
+```
+
+```{r}
+predict(lm.fit,data.frame(lstat=c(5,10,15)),interval = 'prediction')
+```
+
+```{r}
+plot(Boston$lstat,Boston$medv)
+abline(lm.fit)
+```
+
+### Special Plots
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit,cex=0.5)
+```
+
+```{r}
+which.max(hatvalues(lm.fit))
+```
+
+## Multiple linear regression
+* 对每一个变量进行回归是可能计算出偏差的，最好的方法是构建多元的模型。有时由于某两个变量之间具有相关性，会导致某个变量在做单个线性回归的时候表现出重要性，但是实际上它只是在某个程度上反映了另一个变量和目标向量的关系。  
+* 一个荒诞的例子：某个阶段的海滩数据中，建立鲨鱼攻击量和冰淇淋销售的回归，二者表现出正相关。但是显然不会有人建议通过限制冰淇淋销售来减少鲨鱼攻击量，实际上，当这个回归模型中加入温度的变量之后，冰淇淋销售的Beta就不会那么显著了。
+```{r}
+lm.fit=lm(medv~lstat+age,data=Boston)
+summary(lm.fit)
+```
+
+```{r}
+lm.fit=lm(medv~.,data = Boston)
+summary(lm.fit)
+```
+
+### Calculate VIF
+* VIF超过5或10就有共线性的问题。
+```{r}
+library(car)
+vif(lm.fit)
+```
+
+#### Remove age and do regression
+```{r}
+lm.fit=lm(medv~.-age,data = Boston)
+summary(lm.fit)
+```
+
+### Interactive Variables
+* 交互项中，实验分层原则：如果模型中含有交互项，那么即使主效应的系数的p值不显著，也应包含在模型中。
+```{r}
+summary(lm(medv~lstat*age,data=Boston))
+```
+
+### Nonlinear Transformation
+* 观察数据中的非线性：通过观察残差图和拟合值之间的关系，可以很清楚的发现其中的非线性关系。  
+* 误差项方差非恒定：如果残差图呈漏斗形，说明误差项方差表现出异方差性，可用的办法是用一个凹函数对y做变换，例如log(y)和sqrt(y)。  
+* 离群点：在残差图中通过对学生化残差观察可以发现离群点，学生化残差绝对值大于3的观测点可能是离群点。  
+* 高杠杆点：高杠杆点说明观测点的x值是异常的。高杠杆点对回归直线的估计有很大的影响，一个具有高杠杆和高残差的点非常值得注意。杠杆统计量：Page 68.
+```{r}
+lm.fit2=lm(medv~lstat+I(lstat^2),data=Boston)
+summary(lm.fit2)
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit2,cex=0.5)
+```
+
+### Use ANOVA to compare two different models
+```{r}
+lm.fit=lm(medv~lstat,data=Boston)
+anova(lm.fit,lm.fit2)
+```
+
+```{r}
+summary(lm(medv~poly(lstat,5),data=Boston))
+```
+
+### Qualitative variables
+```{r}
+lm.fit=lm(Sales~.+Income:Advertising+Price:Age,data=Carseats)
+summary(lm.fit)
+```
+
+```{r}
+contrasts(Carseats$ShelveLoc)
+```
+
