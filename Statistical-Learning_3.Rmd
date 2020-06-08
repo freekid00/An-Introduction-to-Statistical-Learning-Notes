@@ -1,0 +1,132 @@
+---
+title: "Statistical Learning Three - Resampling"
+author: "Albert Panda"
+date: "6/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 案例1:通过验证集方法说明poly2比poly3性能更好一些 - 根据不同的seed值
+```{r}
+library(ISLR)
+set.seed(1)
+train=sample(392,196)
+lm.fit=lm(mpg~horsepower,data=Auto,subset=train)
+attach(Auto)
+mean((mpg-predict(lm.fit,Auto))[-train]^2)
+```
+
+```{r}
+lm.fit2=lm(mpg~poly(horsepower,2),data=Auto,subset=train)
+mean((mpg-predict(lm.fit2,Auto))[-train]^2)
+```
+
+```{r}
+lm.fit3=lm(mpg~poly(horsepower,3),data=Auto,subset=train)
+mean((mpg-predict(lm.fit3,Auto))[-train]^2)
+```
+
+```{r}
+set.seed(2)
+train=sample(392,196)
+lm.fit=lm(mpg~horsepower,data=Auto,subset=train)
+mean((mpg-predict(lm.fit,Auto))[-train]^2)
+```
+
+```{r}
+lm.fit2=lm(mpg~poly(horsepower,2),data=Auto,subset=train)
+mean((mpg-predict(lm.fit2,Auto))[-train]^2)
+```
+
+```{r}
+lm.fit3=lm(mpg~poly(horsepower,3),data=Auto,subset=train)
+mean((mpg-predict(lm.fit3,Auto))[-train]^2)
+```
+
+## LOOCV - 留一交叉验证
+当glm中不设置family时，glm等同于lm进行线性回归，并且可以与cv.glm共同使用,delta为结果。
+```{r}
+library(boot)
+glm.fit=glm(mpg~horsepower,data=Auto)
+cv.error=cv.glm(Auto,glm.fit)
+cv.error$delta
+```
+
+```{r}
+glm.error=rep(0,5)
+for (i in 1:5){
+  glm.fit=glm(mpg~poly(horsepower,i),data=Auto)
+  glm.error[i]=cv.glm(Auto,glm.fit)$delta[1]
+}
+glm.error
+```
+
+## K-fold Cross-Validation
+```{r}
+set.seed(17)
+glm.error=rep(0,10)
+for (i in 1:10){
+  glm.fit=glm(mpg~poly(horsepower,i),data=Auto)
+  glm.error[i]=cv.glm(Auto,glm.fit,K=10)$delta[1]
+}
+glm.error
+```
+
+## Bootstrap
+```{r}
+alpha.fn=function(data,index){
+  X=data$X[index]
+  Y=data$Y[index]
+  return ((var(Y)-cov(X,Y))/(var(X)+var(Y)-2*cov(X,Y)))
+}
+```
+
+```{r}
+alpha.fn(Portfolio,1:100)
+```
+
+```{r}
+set.seed(2)
+alpha.fn(Portfolio,sample(100,100,replace=T))
+```
+
+```{r}
+boot(Portfolio,alpha.fn,R=1000)
+```
+
+## 估计线性回归模型的精度
+对于有问题的模型，bootstrap的估计会比公式估计更加准确
+```{r}
+boot.fn=function(data,index){
+  return(coef(lm(mpg~horsepower,data = data,subset = index)))
+}
+boot.fn(Auto,1:392)
+```
+
+```{r}
+set.seed(1)
+boot.fn(Auto,sample(392,392,replace = T))
+```
+
+```{r}
+boot(Auto,boot.fn,R=1000)
+```
+
+```{r}
+summary(lm(mpg~horsepower,data = Auto))$coef
+```
+
+```{r}
+boot.fn=function(data,index){
+  return(coef(lm(mpg~horsepower+I(horsepower^2),data = data,subset = index)))
+}
+boot(Auto,boot.fn,R=1000)
+```
+
+```{r}
+summary(lm(mpg~horsepower+I(horsepower^2),data = Auto))$coef
+```
+
