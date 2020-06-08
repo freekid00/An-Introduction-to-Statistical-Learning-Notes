@@ -1,0 +1,218 @@
+---
+title: "Statistical Learning Two - Classification"
+author: "Albert Panda"
+date: "6/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##  Classification
+#### Stock market Data
+```{r}
+library(ISLR)
+names(Smarket)
+```
+
+```{r}
+dim(Smarket)
+```
+
+```{r}
+summary(Smarket)
+```
+
+### Calculate Correlation
+* 前几日的股票回报率和当日的回报率没有什么相关性。  
+* 随着时间增加，Volume在不断增加。  
+```{r}
+cor(Smarket[,-9])
+```
+
+```{r}
+attach(Smarket)
+plot(Volume)
+```
+
+## Logistic Regression 
+* Use glm with family=binomial  
+* 从回归中发现P-value最小的是Lag1，说明市场昨天的回报率是正的，那么今天可能不会上涨。但是P-value仍然不是特别显著。  
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data=Smarket,family=binomial)
+summary(glm.fit)
+```
+
+### Predict
+```{r}
+glm.probs=predict(glm.fit,type='response')
+glm.probs[1:10]
+```
+
+```{r}
+contrasts(Direction)
+```
+
+#### Predict using Sign - 'Up' and 'Down'
+```{r}
+glm.pred=rep('Down',1250)
+glm.pred[glm.probs>0.5]='Up'
+```
+
+### Calculate Confusion Matrix
+```{r}
+table(glm.pred,Direction)
+```
+
+### Calculate a vector that contains year between 2001 and 2004  
+* Train Logistic Regression on a subset of the total data (between 2001 and 2004); test the model on year 2005.  
+* Then use only Lag1 and Lag2 to build the model - as these two variables have lower P-value.   
+* Predict for specific Variables - Lag1 and Lag2  
+```{r}
+train=(Year<2005)
+Smarket.2005=Smarket[!train,]
+Direction.2005=Direction[!train]
+dim(Smarket.2005)
+```
+
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data=Smarket,family=binomial,subset=train)
+glm.probs=predict(glm.fit,Smarket.2005,type='response')
+glm.pred=rep('Down',252)
+glm.pred[glm.probs>0.5]='Up'
+table(glm.pred,Direction.2005)
+```
+
+```{r}
+mean(glm.pred==Direction.2005)
+```
+
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2,data=Smarket,family=binomial,subset=train)
+glm.probs=predict(glm.fit,Smarket.2005,type='response')
+glm.pred=rep('Down',252)
+glm.pred[glm.probs>0.5]='Up'
+table(glm.pred,Direction.2005)
+```
+
+```{r}
+mean(glm.pred==Direction.2005)
+```
+
+```{r}
+predict(glm.fit,newdata=data.frame(Lag1=c(1.2,1.5),Lag2=c(1.1,-0.8)),type='response')
+```
+
+## LDA - 假设每个类都服从同方差的高斯分布  
+* LDA输出说明数据中有0.491984的Down标签，在Group中，说明当今天是Down时，前两天的投资回报率都会趋向负值；当今天是Up时，前两天的投资回报率都趋向正值。  
+* Plot 下可以生成线性判断图像，通过对每个训练观测计算-0.642*Lag1-0.5235*Lag2获得。  
+* LDA与Logistic Regression在预测结果上几乎一致。  
+* LDA & Logistic Regression: 1) 当类别区分度高的时候，逻辑回归的参数估计不稳定，而线性判别分析没有这个问题。2）如果样本n较小，而且在每个类中预测变量近似服从高斯分布，那么线性判别分析更稳定。3）相应分类多于2类时，线性判别分析应用更普遍。
+```{r}
+library(MASS)
+lda.fit=lda(Direction~Lag1+Lag2,data=Smarket,subset=train)
+lda.fit
+```
+
+```{r}
+plot(lda.fit,col='black')
+```
+
+```{r}
+lda.pred=predict(lda.fit,Smarket.2005)
+names(lda.pred)
+```
+
+```{r}
+lda.class=lda.pred$class
+table(lda.class,Direction.2005)
+```
+
+```{r}
+mean(glm.pred==Direction.2005)
+```
+
+## QDA - 假设每个类都服从各自方差的高斯分布  
+```{r}
+qda.fit=qda(Direction~Lag1+Lag2,data=Smarket,subset=train)
+qda.fit
+```
+
+```{r}
+qda.class=predict(qda.fit,Smarket.2005)$class
+table(qda.class,Direction.2005)
+```
+
+```{r}
+mean(qda.class==Direction.2005)
+```
+
+## KNN  
+```{r}
+library(class)
+train.X=cbind(Lag1,Lag2)[train,]
+test.X=cbind(Lag1,Lag2)[!train,]
+train.Direction=Direction[train]
+
+set.seed(1)
+knn.pred=knn(train.X,test.X,train.Direction,k=3)
+table(knn.pred,Direction.2005)
+```
+
+## 大篷车保险数据应用
+```{r}
+dim(Caravan)
+attach(Caravan)
+```
+
+```{r}
+summary(Purchase)
+```
+
+### 使用scale标准化数据
+```{r}
+standard.X=scale(Caravan[,-86])
+```
+
+```{r}
+test=1:1000
+train.x=standard.X[-test,]
+test.x=standard.X[test,]
+train.y=Purchase[-test]
+test.y=Purchase[test]
+
+set.seed(1)
+knn.pred=knn(train.x,test.x,train.y,k=1)
+mean(test.y!=knn.pred)
+```
+
+```{r}
+mean(test.y!='No')
+```
+
+```{r}
+table(knn.pred,test.y)
+```
+
+```{r}
+set.seed(1)
+knn.pred=knn(train.x,test.x,train.y,k=5)
+table(knn.pred,test.y)
+```
+
+### 使用Logistic Regression做对比
+```{r warning=FALSE}
+glm.fit=glm(Purchase~.,data=Caravan,subset=-test,family=binomial)
+glm.probs=predict(glm.fit,Caravan[test,],type='response')
+glm.pred=rep('No',1000)
+glm.pred[glm.probs>.5]='Yes'
+table(glm.pred,test.y)
+```
+
+```{r warning=FALSE}
+glm.pred=rep('No',1000)
+glm.pred[glm.probs>.25]='Yes'
+table(glm.pred,test.y)
+```
+
